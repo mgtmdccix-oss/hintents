@@ -44,6 +44,10 @@ func createDeepTrace(depth int) *TraceNode {
 		child := NewTraceNode("node-"+string(rune(i)), "contract_call")
 		child.ContractID = "CONTRACT"
 		child.Function = "call"
+		cpu := uint64(1000)
+		mem := uint64(512)
+		child.CPUDelta = &cpu
+		child.MemoryDelta = &mem
 		current.AddChild(child)
 		current = child
 	}

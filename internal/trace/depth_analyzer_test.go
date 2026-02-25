@@ -87,11 +87,19 @@ func createTestTrace() *TraceNode {
 	call1 := NewTraceNode("call-1", "contract_call")
 	call1.ContractID = "CONTRACT1"
 	call1.Function = "transfer"
+	cpu1 := uint64(1000)
+	mem1 := uint64(512)
+	call1.CPUDelta = &cpu1
+	call1.MemoryDelta = &mem1
 	root.AddChild(call1)
 	
 	call2 := NewTraceNode("call-2", "contract_call")
 	call2.ContractID = "CONTRACT2"
 	call2.Function = "swap"
+	cpu2 := uint64(2000)
+	mem2 := uint64(1024)
+	call2.CPUDelta = &cpu2
+	call2.MemoryDelta = &mem2
 	call1.AddChild(call2)
 	
 	errorNode := NewTraceNode("error-1", "error")
