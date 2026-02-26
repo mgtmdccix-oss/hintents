@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
