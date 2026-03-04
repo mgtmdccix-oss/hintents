@@ -1,6 +1,18 @@
+
 #!/bin/bash
 # Copyright 2025 Erst Users
 # SPDX-License-Identifier: Apache-2.0
+
+#!/bin/bash
+# Copyright (c) Hintents Authors.
+# SPDX-License-Identifier: Apache-2.0
+
+#!/bin/bash
+
+# Copyright (c) 2026 dotandev
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+>>>>>>> Stashed changes
 
 # Test script to verify unused code detection setup
 # This creates a temporary file with unused code to test the linter
@@ -15,15 +27,15 @@ package main
 
 import "fmt"
 
-// This variable should be detected as unused
+# This variable should be detected as unused
 var unusedVariable = "test"
 
-// This function should be detected as unused
+# This function should be detected as unused
 func unusedFunction() {
     fmt.Println("This function is not used")
 }
 
-// This constant should be detected as unused
+# This constant should be detected as unused
 const unusedConstant = 42
 
 func main() {

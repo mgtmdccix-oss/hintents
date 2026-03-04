@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -327,6 +328,7 @@ func (lb *limitedBuffer) Write(p []byte) (n int, err error) {
 }
 
 func (r *Runner) Close() error {
+
 	r.mu.Lock()
 	if r.closed {
 		r.mu.Unlock()

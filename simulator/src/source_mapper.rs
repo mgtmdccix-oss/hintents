@@ -14,7 +14,6 @@ pub struct SourceMapper {
     git_repo: Option<GitRepository>,
 }
 
-#[derive(Debug, Clone, Serialize)]
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceLocation {

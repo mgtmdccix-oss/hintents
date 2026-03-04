@@ -86,7 +86,11 @@ func TestGetLedgerEntries_FiveKeys(t *testing.T) {
 		reqKeys := req.Params[0].([]interface{})
 
 		// Build response with entries for each key
+<<<<<<< Updated upstream
 		entries := make([]LedgerEntryResult, len(reqKeys))
+=======
+		entries := make([]LedgerEntryResult, len(keys))
+>>>>>>> Stashed changes
 
 		for i, key := range reqKeys {
 			entries[i] = LedgerEntryResult{

@@ -32,7 +32,6 @@ pub struct SimulationRequest {
     pub enable_coverage: bool,
     #[serde(default)]
     pub coverage_lcov_path: Option<String>,
-    pub resource_calibration: Option<ResourceCalibration>,
     /// Optional hard memory limit in bytes. If set, the simulator will panic
     /// when memory consumption exceeds this limit, simulating live network constraints.
     pub memory_limit: Option<u64>,

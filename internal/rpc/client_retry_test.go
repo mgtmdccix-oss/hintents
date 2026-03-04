@@ -103,6 +103,10 @@ func TestGetLedgerEntriesRetriesOnRateLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected retry to succeed, got error: %v", err)
 	}
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 	if entries[validKey] != "BBB" {
 		t.Fatalf("unexpected ledger entry: %v", entries)
 	}

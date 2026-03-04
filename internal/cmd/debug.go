@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dotandev/hintents/internal/config"
+	"github.com/dotandev/hintents/internal/decenstorage"
 	"github.com/dotandev/hintents/internal/decoder"
 	"github.com/dotandev/hintents/internal/errors"
 	"github.com/dotandev/hintents/internal/logger"
@@ -34,6 +35,7 @@ import (
 	"github.com/stellar/go-stellar-sdk/xdr"
 	"go.opentelemetry.io/otel/attribute"
 )
+
 var (
 	networkFlag         string
 	rpcURLFlag          string
@@ -63,6 +65,8 @@ var (
 	mockTimeFlag        int64
 	mockBaseFeeFlag     uint32
 	mockGasPriceFlag    uint64
+	asyncFlag           bool
+	asyncTimeoutFlag    int
 )
 
 // DebugCommand holds dependencies for the debug command
@@ -471,7 +475,7 @@ Local WASM Replay Mode:
 				}
 				applySimulationFeeMocks(simReq)
 
-				simResp, err = runner.Run(simReq)
+				simResp, err = runner.Run(ctx, simReq)
 				if err != nil {
 					return errors.WrapSimulationFailed(err, "")
 				}
@@ -509,7 +513,7 @@ Local WASM Replay Mode:
 						Timestamp:     ts,
 					}
 					applySimulationFeeMocks(primaryReq)
-					primaryResult, primaryErr = runner.Run(primaryReq)
+					primaryResult, primaryErr = runner.Run(ctx, primaryReq)
 				}()
 
 				go func() {
@@ -549,7 +553,7 @@ Local WASM Replay Mode:
 						Timestamp:     ts,
 					}
 					applySimulationFeeMocks(compareReq)
-					compareResult, compareErr = runner.Run(compareReq)
+					compareResult, compareErr = runner.Run(ctx, compareReq)
 				}()
 
 				wg.Wait()
@@ -582,7 +586,7 @@ Local WASM Replay Mode:
 		// Analysis: Error Suggestions (Heuristic-based)
 		if len(lastSimResp.Events) > 0 {
 			suggestionEngine := decoder.NewSuggestionEngine()
-			
+
 			// Decode events for analysis
 			callTree, err := decoder.DecodeEvents(lastSimResp.Events)
 			if err == nil && callTree != nil {
@@ -795,7 +799,7 @@ func runLocalWasmReplay() error {
 
 	// Run simulation
 	fmt.Printf("%s Executing contract locally...\n", visualizer.Symbol("play"))
-	resp, err := runner.Run(req)
+	resp, err := runner.Run(context.Background(), req)
 	if err != nil {
 		fmt.Printf("%s Technical failure: %v\n", visualizer.Error(), err)
 		return err
@@ -1208,4 +1212,18 @@ func displaySourceLocation(loc *simulator.SourceLocation) {
 		}
 	}
 	fmt.Println()
+}
+
+func applySimulationFeeMocks(req *simulator.SimulationRequest) {
+	// Stub implementation
+}
+
+func findDeprecatedHostFunction(event string) (string, bool) {
+	// Stub implementation
+	return "", false
+}
+
+func deprecatedHostFunctionInDiagnosticEvent(event simulator.DiagnosticEvent) (string, bool) {
+	// Stub implementation
+	return "", false
 }

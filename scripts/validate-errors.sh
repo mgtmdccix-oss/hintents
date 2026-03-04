@@ -1,6 +1,18 @@
+
 #!/bin/bash
 # Copyright 2025 Erst Users
 # SPDX-License-Identifier: Apache-2.0
+
+#!/bin/bash
+# Copyright (c) Hintents Authors.
+# SPDX-License-Identifier: Apache-2.0
+
+#!/bin/bash
+
+# Copyright (c) 2026 dotandev
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+>>>>>>> Stashed changes
 
 # Validate error standardization implementation
 set -euo pipefail

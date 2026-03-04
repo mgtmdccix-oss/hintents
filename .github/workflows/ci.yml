@@ -56,7 +56,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+<<<<<<< Updated upstream
         go-version: ["1.24"]
+=======
+        go-version: ["1.24.0"]
+>>>>>>> Stashed changes
 
     steps:
       - name: Checkout code
@@ -73,7 +77,11 @@ jobs:
         run: go mod verify
 
       - name: Check formatting
+<<<<<<< Updated upstream
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24'
+=======
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.0'
+>>>>>>> Stashed changes
         run: |
           if [ -n "$(gofmt -l .)" ]; then
             echo "[FAIL] Go files are not formatted. Run 'go fmt ./...' to fix."
@@ -83,18 +91,30 @@ jobs:
           echo " All Go files are properly formatted"
 
       - name: Run go vet
+<<<<<<< Updated upstream
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24'
         run: go vet ./...
 
       - name: Install golangci-lint
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24'
+=======
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.0'
+        run: go vet ./...
+
+      - name: Install golangci-lint
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.0'
+>>>>>>> Stashed changes
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --config=.golangci.yml --timeout=5m --max-issues-per-linter=0 --max-same-issues=0
 
       - name: Check for unused variables
+<<<<<<< Updated upstream
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24'
+=======
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.0'
+>>>>>>> Stashed changes
         run: |
           echo "Checking for unused variables and code..."
           go vet ./... || {
@@ -136,7 +156,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.24.0"
           cache: true
           cache-dependency-path: go.sum
 

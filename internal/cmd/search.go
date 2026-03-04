@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/dotandev/hintents/internal/db"
+	"github.com/dotandev/hintents/internal/errors"
 	"github.com/dotandev/hintents/internal/session"
 	"github.com/spf13/cobra"
 )

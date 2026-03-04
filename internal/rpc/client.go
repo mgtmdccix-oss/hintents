@@ -125,7 +125,7 @@ type Client struct {
 	failures        map[string]int
 	lastFailure     map[string]time.Time
 	middlewares     []Middleware
-  	// rotateCount tracks how many times rotateURL has successfully switched
+	// rotateCount tracks how many times rotateURL has successfully switched
 	// the active provider.  This is useful for metrics/observability when the
 	// client is operating in a multi‑URL failover configuration.
 	rotateCount int
@@ -316,6 +316,8 @@ func (c *Client) RotateCount() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.rotateCount
+}
+
 // attempts returns the number of retry attempts for failover loops (at least 1)
 func (c *Client) attempts() int {
 	if len(c.AltURLs) == 0 {
@@ -494,6 +496,7 @@ func (c *Client) getTransactionAttempt(ctx context.Context, hash string) (txResp
 
 	tx, err := c.Horizon.TransactionDetail(hash)
 	duration := time.Since(startTime)
+
 	if err != nil {
 		span.RecordError(err)
 		logger.Logger.Error("Failed to fetch transaction", "hash", hash, "error", err, "url", c.HorizonURL)
@@ -542,7 +545,6 @@ type LedgerEntryResult struct {
 	LastModifiedLedger int    `json:"lastModifiedLedgerSeq"`
 	LiveUntilLedger    int    `json:"liveUntilLedgerSeq"`
 }
-
 type GetLedgerEntriesResponse struct {
 	Jsonrpc string `json:"jsonrpc"`
 	ID      int    `json:"id"`
@@ -557,6 +559,7 @@ type GetLedgerEntriesResponse struct {
 }
 
 // GetLedgerHeader fetches ledger header details for a specific sequence.
+
 // This includes essential metadata like sequence number, timestamp, protocol version,
 // and XDR-encoded header data needed for transaction simulation.
 //
@@ -797,6 +800,7 @@ func (c *Client) GetLedgerEntries(ctx context.Context, keys []string) (map[strin
 	// Single batch - use existing failover logic
 	attempts := c.endpointAttempts()
 	for attempt := 0; attempt < attempts; attempt++ {
+
 		fetchedEntries, err := c.getLedgerEntriesAttempt(ctx, keysToFetch)
 		if err == nil {
 			// Merge cached entries with fetched entries
@@ -940,7 +944,6 @@ func (c *Client) getLedgerEntriesAttempt(ctx context.Context, keysToFetch []stri
 	logger.Logger.Debug("Fetching ledger entries", "count", len(keysToFetch), "url", targetURL)
 
 	startTime := time.Now()
-
 	// Fail fast if circuit breaker is open for this Soroban endpoint.
 	if !c.isHealthy(targetURL) {
 		err := errors.WrapRPCConnectionFailed(
@@ -948,6 +951,7 @@ func (c *Client) getLedgerEntriesAttempt(ctx context.Context, keysToFetch []stri
 		)
 		// Record failed remote node response
 		metrics.RecordRemoteNodeResponse(targetURL, string(c.Network), false, time.Since(startTime))
+
 		return nil, err
 	}
 
@@ -1385,6 +1389,7 @@ func (c *Client) getHealthAttempt(ctx context.Context) (healthResp *GetHealthRes
 
 	// Prefer SorobanURL but fall back to the currently active HorizonURL so that
 	// rotateURL-triggered failovers are reflected in health checks.
+	targetURL = c.SorobanURL
 	if targetURL == "" {
 		targetURL = c.HorizonURL
 	}

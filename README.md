@@ -1,15 +1,14 @@
 # Erst By Hintents
 
-**Erst** is a specialized developer tool for the Stellar network, designed to solve the "black box" debugging experience on Soroban.
+**Erst** is a premium developer toolset for the Stellar network, designed to provide high-fidelity "glass-box" debugging and simulation for Soroban smart contracts.
 
-> **Status**: Active Development (Pre-Alpha)
-> **Focus**: Soroban Error Decoding & Transaction Replay
+> **Status**: Active Development (Phase 4: Advanced Diagnostics)
+> **Documentation**: [https://dotandev-hintents-75.mintlify.app/](https://dotandev-hintents-75.mintlify.app/)
+> **Focus**: High-Fidelity Simulation, Auth Tracing, and Security Auditing
 
 ## Scope & Objective
 
-The primary goal of `erst` is to clarify **why** a Stellar smart contract transaction failed.
-
-Currently, when a Soroban transaction fails on mainnet, developers receive a generic XDR error code. `erst` aims to bridge the gap between this opaque network error and the developer's source code.
+The primary goal of `erst` is to eliminate the opaque "black box" experience of failed Stellar smart contract transactions. By providing local-first, high-fidelity replay and tracing, `erst` maps generic network errors back to human-readable diagnostic events and source code.
 
 **Core Features (Planned):**
 
