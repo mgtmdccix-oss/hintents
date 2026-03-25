@@ -144,11 +144,3 @@ func FixGoModDependencies(verbose bool) error {
 	fmt.Println("  ✓ Go module dependencies resolved")
 	return nil
 }
-
-// Helper: ConfirmAction prompts user for yes/no confirmation
-func ConfirmAction(prompt string) bool {
-	fmt.Printf("%s [y/N]: ", prompt)
-	var response string
-	fmt.Scanln(&response)
-	return strings.HasPrefix(strings.ToLower(response), "y")
-}
