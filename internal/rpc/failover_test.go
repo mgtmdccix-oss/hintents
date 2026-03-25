@@ -57,7 +57,9 @@ func TestClient_GetHealth_Failover_AllNodesFailedErrorAggregation(t *testing.T) 
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			require.NoError(t, json.NewEncoder(w).Encode(resp))
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("failed to encode response in test server: %v", err)
+			}
 		}))
 	}
 
