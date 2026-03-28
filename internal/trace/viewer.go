@@ -441,9 +441,6 @@ func (v *InteractiveViewer) handleFetchedState(f fetchedState) {
 	}
 	v.stateCache[f.step] = f.state
 	delete(v.fetchErr, f.step)
-
-	fmt.Println(separator(termW))
-	fmt.Println(v.statusBarLine(state))
 }
 
 func (v *InteractiveViewer) statusBarLine(state *ExecutionState) string {

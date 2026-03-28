@@ -116,6 +116,9 @@ func TestInteractiveViewer_DisplayCurrentState_ClearsPlaceholderAfterFetch(t *te
 	}
 	if !strings.Contains(out, "Memory: 1 entries") {
 		t.Fatalf("expected reconstructed memory summary, got: %s", out)
+	}
+}
+
 func TestInteractiveViewer_StatusBarLineFormat(t *testing.T) {
 	trace := NewExecutionTrace("tx", 1)
 	trace.AddState(ExecutionState{
