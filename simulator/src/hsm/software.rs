@@ -21,7 +21,7 @@ pub struct SoftwareSigner {
 impl SoftwareSigner {
     /// Create a new software signer from a private key file
     pub fn from_key_file<P: AsRef<Path>>(path: P) -> Result<Self, SignerError> {
-        let pem_data = fs::read_to_string(path).map_err(|e| SignerError::Io(e))?;
+        let pem_data = fs::read_to_string(path).map_err(SignerError::Io)?;
 
         Self::from_pem(&pem_data)
     }
@@ -55,7 +55,7 @@ impl SoftwareSigner {
         let mut csprng = rand::rngs::OsRng;
         let signing_key = SigningKey::generate(&mut csprng);
 
-        let public_key = signing_key.verifying_key();
+        let _public_key = signing_key.verifying_key();
         use ed25519_dalek::pkcs8::EncodePrivateKey;
         let pem_data = signing_key
             .to_pkcs8_pem(Default::default())
@@ -128,7 +128,7 @@ pub struct Secp256k1SoftwareSigner {
 impl Secp256k1SoftwareSigner {
     /// Create a new secp256k1 software signer from a private key file
     pub fn from_key_file<P: AsRef<Path>>(path: P) -> Result<Self, SignerError> {
-        let pem_data = fs::read_to_string(path).map_err(|e| SignerError::Io(e))?;
+        let pem_data = fs::read_to_string(path).map_err(SignerError::Io)?;
 
         Self::from_pem(&pem_data)
     }
@@ -196,7 +196,6 @@ impl Signer for Secp256k1SoftwareSigner {
     }
 
     async fn public_key(&self) -> Result<PublicKey, SignerError> {
-        use k256::elliptic_curve::sec1::ToEncodedPoint;
         let verifying_key = self.signing_key.verifying_key();
         let spki_bytes = verifying_key.to_encoded_point(false).as_bytes().to_vec();
 

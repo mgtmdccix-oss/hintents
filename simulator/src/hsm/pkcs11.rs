@@ -101,39 +101,55 @@ pub struct CK_MECHANISM {
 }
 
 // PKCS#11 function types
+// Allow non-camel-case names for FFI compatibility with PKCS#11 standard
+#[allow(non_camel_case_types, non_snake_case)]
 type C_InitializeFn = unsafe extern "C" fn(pInitArgs: *mut c_void) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_FinalizeFn = unsafe extern "C" fn(pReserved: *mut c_void) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_GetInfoFn = unsafe extern "C" fn(pInfo: *mut CK_INFO) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_GetSlotListFn = unsafe extern "C" fn(
     bTokenPresent: bool,
     pSlotList: *mut c_ulong,
     pulCount: *mut c_ulong,
 ) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_GetSlotInfoFn = unsafe extern "C" fn(slotID: c_ulong, pInfo: *mut CK_SLOT_INFO) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_GetTokenInfoFn = unsafe extern "C" fn(slotID: c_ulong, pInfo: *mut CK_TOKEN_INFO) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_OpenSessionFn =
     unsafe extern "C" fn(slotID: c_ulong, flags: c_ulong, phSession: *mut c_ulong) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_CloseSessionFn = unsafe extern "C" fn(hSession: c_ulong) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_LoginFn =
     unsafe extern "C" fn(hSession: c_ulong, userType: c_ulong, pPin: *mut c_char) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_LogoutFn = unsafe extern "C" fn(hSession: c_ulong) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_FindObjectsInitFn = unsafe extern "C" fn(
     hSession: c_ulong,
     pTemplate: *mut CK_ATTRIBUTE,
     ulCount: c_ulong,
 ) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_FindObjectsFn = unsafe extern "C" fn(
     hSession: c_ulong,
     phObject: *mut c_ulong,
     ulMaxObjectCount: c_ulong,
     pulObjectCount: *mut c_ulong,
 ) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_FindObjectsFinalFn = unsafe extern "C" fn(hSession: c_ulong) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_SignInitFn = unsafe extern "C" fn(
     hSession: c_ulong,
     pMechanism: *mut CK_MECHANISM,
     hKey: c_ulong,
 ) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_SignFn = unsafe extern "C" fn(
     hSession: c_ulong,
     pData: *mut u8,
@@ -141,6 +157,7 @@ type C_SignFn = unsafe extern "C" fn(
     pSignature: *mut u8,
     pulSignatureLen: *mut c_ulong,
 ) -> c_ulong;
+#[allow(non_camel_case_types, non_snake_case)]
 type C_GetAttributeValueFn = unsafe extern "C" fn(
     hSession: c_ulong,
     hObject: c_ulong,
@@ -161,11 +178,8 @@ impl Pkcs11Signer {
         let library = unsafe { Library::new(&config.module_path) }
             .map_err(|e| SignerError::Pkcs11(format!("Failed to load PKCS#11 module: {}", e)))?;
 
-        let algorithm = if config.module_path.to_lowercase().contains("yubikey") {
-            "ed25519".to_string()
-        } else {
-            "ed25519".to_string() // Default to Ed25519
-        };
+        // Default to Ed25519 for now
+        let algorithm = "ed25519".to_string();
 
         Ok(Self {
             config,
@@ -264,7 +278,7 @@ impl Pkcs11Signer {
             }
 
             if let Some(ref token_label) = self.config.token_label {
-                let label_cstr = CString::new(token_label.as_str()).unwrap();
+                let _label_cstr = CString::new(token_label.as_str()).unwrap();
 
                 for &slot in &slots {
                     let mut token_info = CK_TOKEN_INFO {
@@ -320,23 +334,25 @@ impl Pkcs11Signer {
         session: c_ulong,
     ) -> Result<c_ulong, SignerError> {
         unsafe {
+            let mut class = CKO_PRIVATE_KEY;
             let mut template = vec![CK_ATTRIBUTE {
                 type_: CKA_CLASS,
-                p_value: &mut CKO_PRIVATE_KEY as *mut _ as *mut c_void,
+                p_value: &mut class as *mut _ as *mut c_void,
                 ul_value_len: std::mem::size_of::<c_ulong>() as c_ulong,
             }];
 
-            // Add key identifier if specified
-            if let Some(ref key_label) = self.config.key_label {
+            // Keep these alive for the duration of the function
+            let _label_cstr = self.config.key_label.as_ref().map(|key_label| {
                 let label_cstr = CString::new(key_label.as_str()).unwrap();
                 template.push(CK_ATTRIBUTE {
                     type_: CKA_LABEL,
                     p_value: label_cstr.as_ptr() as *mut c_void,
                     ul_value_len: key_label.len() as c_ulong,
                 });
-            }
+                label_cstr
+            });
 
-            if let Some(ref key_id_hex) = self.config.key_id_hex {
+            let _key_id_bytes = if let Some(ref key_id_hex) = self.config.key_id_hex {
                 let key_id_bytes = hex::decode(key_id_hex)
                     .map_err(|e| SignerError::Config(format!("Invalid key ID hex: {}", e)))?;
                 template.push(CK_ATTRIBUTE {
@@ -344,7 +360,10 @@ impl Pkcs11Signer {
                     p_value: key_id_bytes.as_ptr() as *mut c_void,
                     ul_value_len: key_id_bytes.len() as c_ulong,
                 });
-            }
+                Some(key_id_bytes)
+            } else {
+                None
+            };
 
             let result = (functions.C_FindObjectsInit)(
                 session,
@@ -399,23 +418,25 @@ impl Pkcs11Signer {
             }
 
             // Otherwise, extract public key from HSM
+            let mut class = CKO_PUBLIC_KEY;
             let mut template = vec![CK_ATTRIBUTE {
                 type_: CKA_CLASS,
-                p_value: &mut CKO_PUBLIC_KEY as *mut _ as *mut c_void,
+                p_value: &mut class as *mut _ as *mut c_void,
                 ul_value_len: std::mem::size_of::<c_ulong>() as c_ulong,
             }];
 
-            // Add key identifier if specified
-            if let Some(ref key_label) = self.config.key_label {
+            // Keep these alive for the duration of the function
+            let _label_cstr = self.config.key_label.as_ref().map(|key_label| {
                 let label_cstr = CString::new(key_label.as_str()).unwrap();
                 template.push(CK_ATTRIBUTE {
                     type_: CKA_LABEL,
                     p_value: label_cstr.as_ptr() as *mut c_void,
                     ul_value_len: key_label.len() as c_ulong,
                 });
-            }
+                label_cstr
+            });
 
-            if let Some(ref key_id_hex) = self.config.key_id_hex {
+            let _key_id_bytes = if let Some(ref key_id_hex) = self.config.key_id_hex {
                 let key_id_bytes = hex::decode(key_id_hex)
                     .map_err(|e| SignerError::Config(format!("Invalid key ID hex: {}", e)))?;
                 template.push(CK_ATTRIBUTE {
@@ -423,7 +444,10 @@ impl Pkcs11Signer {
                     p_value: key_id_bytes.as_ptr() as *mut c_void,
                     ul_value_len: key_id_bytes.len() as c_ulong,
                 });
-            }
+                Some(key_id_bytes)
+            } else {
+                None
+            };
 
             let result = (functions.C_FindObjectsInit)(
                 session,
@@ -679,6 +703,7 @@ impl Signer for Pkcs11Signer {
 }
 
 /// PKCS#11 function pointers
+#[allow(non_snake_case)]
 struct Pkcs11Functions {
     C_Initialize: C_InitializeFn,
     C_Finalize: C_FinalizeFn,
