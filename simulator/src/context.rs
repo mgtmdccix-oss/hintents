@@ -3,6 +3,13 @@
 
 //! Lightweight harness context for rollback-and-resume control commands.
 
+use std::collections::HashMap;
+
+use soroban_env_host::events::HostEvent;
+use soroban_env_host::xdr::{LedgerEntry, LedgerKey};
+
+use crate::runner::{SimHost, SimHostError};
+use crate::snapshot::LedgerSnapshot;
 use crate::types::SimulationRequest;
 
 /// Command emitted by the Go bridge when replaying from a rewound point.
@@ -40,7 +47,7 @@ impl HarnessContext {
                 request.rewind_step.unwrap_or(0)
             );
             if let Some(params) = &request.fork_params {
-//                 replay_log.push_str(&format!(", fork_params={}", serde_json::to_string(params).unwrap_or_default()));
+                //                 replay_log.push_str(&format!(", fork_params={}", serde_json::to_string(params).unwrap_or_default()));
                 replay_log.push_str(&format!(
                     ", fork_params={}",
                     serde_json::to_string(params).unwrap_or_default()
@@ -57,13 +64,8 @@ impl HarnessContext {
     /// Resets temporary harness counters that should not leak across forks.
     pub fn reset_temporary_state(&mut self) {
         self.reset_count = self.reset_count.saturating_add(1);
-use std::collections::HashMap;
-
-use soroban_env_host::events::HostEvent;
-use soroban_env_host::xdr::{LedgerEntry, LedgerKey};
-
-use crate::runner::{SimHost, SimHostError};
-use crate::snapshot::LedgerSnapshot;
+    }
+}
 
 #[derive(Debug, Clone)]
 struct SnapshotState {
@@ -116,7 +118,10 @@ impl SimulationContext {
         Ok(())
     }
 
-    pub fn capture_snapshot(&mut self, snapshot_id: impl Into<String>) -> Result<(), SimulationContextError> {
+    pub fn capture_snapshot(
+        &mut self,
+        snapshot_id: impl Into<String>,
+    ) -> Result<(), SimulationContextError> {
         self.sync_events()?;
         let snapshot = self.host.capture_snapshot()?;
         self.snapshots.insert(
@@ -154,11 +159,8 @@ impl SimulationContext {
         let host_events = self.host.event_log()?;
         if self.synced_host_event_count < host_events.len() {
             let host_event_count = host_events.len();
-            self.committed_events.extend(
-                host_events
-                    .into_iter()
-                    .skip(self.synced_host_event_count),
-            );
+            self.committed_events
+                .extend(host_events.into_iter().skip(self.synced_host_event_count));
             self.synced_host_event_count = host_event_count;
         }
         Ok(())
@@ -168,11 +170,11 @@ impl SimulationContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_env_host::EnvBase;
     use soroban_env_host::xdr::{
         ContractDataDurability, ContractDataEntry, ContractId, Hash, LedgerEntry, LedgerEntryData,
         LedgerEntryExt, LedgerKey, LedgerKeyContractData, Limits, ScAddress, ScVal, WriteXdr,
     };
+    use soroban_env_host::EnvBase;
     use std::rc::Rc;
 
     fn contract_data_key(id: u8, key: u32) -> Rc<LedgerKey> {
@@ -239,16 +241,12 @@ mod tests {
             .capture_snapshot()
             .expect("restored snapshot should be readable");
         assert_eq!(restored_snapshot.len(), 1);
-        assert!(
-            restored_snapshot
-                .get(&first_key.to_xdr(Limits::none()).unwrap())
-                .is_some()
-        );
-        assert!(
-            restored_snapshot
-                .get(&second_key.to_xdr(Limits::none()).unwrap())
-                .is_none()
-        );
+        assert!(restored_snapshot
+            .get(&first_key.to_xdr(Limits::none()).unwrap())
+            .is_some());
+        assert!(restored_snapshot
+            .get(&second_key.to_xdr(Limits::none()).unwrap())
+            .is_none());
 
         let after_rollback_events = context.events().expect("events should load");
         assert_eq!(after_rollback_events.len(), 1);
@@ -261,10 +259,8 @@ mod tests {
             .capture_snapshot()
             .expect("replayed snapshot should be readable");
         assert_eq!(replayed_snapshot.len(), 2);
-        assert!(
-            replayed_snapshot
-                .get(&second_key.to_xdr(Limits::none()).unwrap())
-                .is_some()
-        );
+        assert!(replayed_snapshot
+            .get(&second_key.to_xdr(Limits::none()).unwrap())
+            .is_some());
     }
 }

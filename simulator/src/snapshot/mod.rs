@@ -111,7 +111,6 @@ impl LedgerSnapshot {
     /// are preserved as their canonical XDR byte representation.
     pub fn to_bytes(&self) -> Result<Vec<u8>, SnapshotError> {
         let mut entries = self
-            .entries
             .iter()
             .map(|(key, entry)| {
                 let entry = entry.to_xdr(Limits::none()).map_err(|e| {
@@ -155,7 +154,10 @@ impl LedgerSnapshot {
             entries.insert(wire_entry.key, entry);
         }
 
-        Ok(Self { entries })
+        Ok(Self {
+            base: Arc::new(entries),
+            delta: HashMap::new(),
+        })
     }
 
     /// Returns the number of entries in the snapshot.

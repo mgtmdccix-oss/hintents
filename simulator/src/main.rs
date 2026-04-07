@@ -26,6 +26,7 @@ use crate::types::*;
 use base64::Engine as _;
 use soroban_env_host::xdr::{ReadXdr, WriteXdr};
 use soroban_env_host::{
+    events::{Events, HostEvent},
     xdr::{Operation, OperationBody},
     Host, HostError,
 };
@@ -153,14 +154,18 @@ fn check_memory_limit_or_panic(host: &Host, memory_limit: Option<u64>) {
     }
 }
 
-fn load_ledger_entries(host: &Host, entries: &HashMap<String, String>) -> Result<usize, String> {
+fn load_ledger_entries(
+    sim_host: &mut runner::SimHost,
+    entries: &HashMap<String, String>,
+) -> Result<usize, String> {
     let mut loaded_entries = 0usize;
     for (key_xdr, entry_xdr) in entries {
         let key = snapshot::decode_ledger_key(key_xdr)
             .map_err(|e| format!("Failed to parse LedgerKey XDR: {e}"))?;
         let entry = snapshot::decode_ledger_entry(entry_xdr)
             .map_err(|e| format!("Failed to parse LedgerEntry XDR: {e}"))?;
-        host.put_ledger_entry(key, entry)
+        sim_host
+            .set_ledger_entry(key, entry)
             .map_err(|e| format!("Failed to inject ledger entry: {e:?}"))?;
         loaded_entries += 1;
     }
@@ -504,12 +509,11 @@ fn main() {
     };
 
     // Initialize Host
-    let sim_host = runner::SimHost::new(
+    let mut sim_host = runner::SimHost::new(
         None,
         request.resource_calibration.clone(),
         request.memory_limit,
     );
-    let host = sim_host.inner;
 
     // --- START: Local WASM Loading Integration (Issue #70) ---
     if let Some(path) = &request.wasm_path {
@@ -527,15 +531,6 @@ fn main() {
     let mut loaded_entries_count = 0;
 
     // Populate Host Storage
-    if let Some(entries) = &request.ledger_entries {
-        match load_ledger_entries(&host, entries) {
-            Ok(count) => {
-                loaded_entries_count += count;
-            }
-            Err(err) => {
-                send_error(err);
-                return;
-            }
     // Populate Host Storage — resolve ledger entries (plain or zstd-compressed).
     let resolved_entries: Option<std::collections::HashMap<String, String>> =
         if let Some(b64) = &request.ledger_entries_zstd {
@@ -550,48 +545,19 @@ fn main() {
             request.ledger_entries.clone()
         };
 
+    let mut loaded_entries_count = 0;
     if let Some(entries) = &resolved_entries {
-        for (key_xdr, entry_xdr) in entries {
-            match base64::engine::general_purpose::STANDARD.decode(key_xdr) {
-                Ok(b) => match soroban_env_host::xdr::LedgerKey::from_xdr(
-                    b,
-                    soroban_env_host::xdr::Limits::none(),
-                ) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        send_error(format!("Failed to parse LedgerKey XDR: {}", e));
-                        return;
-                    }
-                },
-                Err(e) => {
-                    send_error(format!("Failed to decode LedgerKey Base64: {}", e));
-                    return;
-                }
-            };
-
-            match base64::engine::general_purpose::STANDARD.decode(entry_xdr) {
-                Ok(b) => match soroban_env_host::xdr::LedgerEntry::from_xdr(
-                    b,
-                    soroban_env_host::xdr::Limits::none(),
-                ) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        send_error(format!("Failed to parse LedgerEntry XDR: {}", e));
-                        return;
-                    }
-                },
-                Err(e) => {
-                    send_error(format!("Failed to decode LedgerEntry Base64: {}", e));
-                    return;
-                }
-            };
-
-            // TODO: Inject into host storage.
-            // For MVP, we verify we can parse them.
-            eprintln!("Parsed Ledger Entry from XDR successfully");
-            loaded_entries_count += 1;
+        match load_ledger_entries(&mut sim_host, entries) {
+            Ok(count) => {
+                loaded_entries_count = count;
+            }
+            Err(err) => {
+                send_error(err);
+                return;
+            }
         }
     }
+    let host = &sim_host.inner;
 
     let operations = match &envelope {
         soroban_env_host::xdr::TransactionEnvelope::Tx(tx_v1) => &tx_v1.tx.operations,
@@ -684,61 +650,64 @@ fn main() {
 
     match result {
         Ok(Ok(exec_logs)) => {
-            let (events, diagnostic_events): (Vec<String>, Vec<DiagnosticEvent>) = match host
-                .get_events()
-            {
-                Ok(evs) => {
-                    let mut raw_events: Vec<String> = Vec::with_capacity(evs.0.len());
-                    let diag_events: Vec<DiagnosticEvent> = (evs.0)
-                        .iter()
-                        .map(|event| {
-                            let event_type = match event.event.type_ {
-                                soroban_env_host::xdr::ContractEventType::Contract => {
-                                    "contract".to_string()
-                                }
-                                soroban_env_host::xdr::ContractEventType::System => {
-                                    "system".to_string()
-                                }
-                                soroban_env_host::xdr::ContractEventType::Diagnostic => {
-                                    "diagnostic".to_string()
-                                }
-                            };
+            let (events, diagnostic_events): (Vec<String>, Vec<DiagnosticEvent>) =
+                match sim_host.inner.get_events() {
+                    Ok(evs) => {
+                        let evs = evs.clone();
+                        let mut raw_events: Vec<String> = Vec::with_capacity(evs.0.len());
+                        let diag_events: Vec<DiagnosticEvent> = (evs.0)
+                            .iter()
+                            .map(|event| {
+                                let event_type = match event.event.type_ {
+                                    soroban_env_host::xdr::ContractEventType::Contract => {
+                                        "contract".to_string()
+                                    }
+                                    soroban_env_host::xdr::ContractEventType::System => {
+                                        "system".to_string()
+                                    }
+                                    soroban_env_host::xdr::ContractEventType::Diagnostic => {
+                                        "diagnostic".to_string()
+                                    }
+                                };
 
-                            let contract_id =
-                                event.event.contract_id.as_ref().map(contract_id_to_hex);
+                                let contract_id =
+                                    event.event.contract_id.as_ref().map(contract_id_to_hex);
 
-                            let (topics, data) = match &event.event.body {
-                                soroban_env_host::xdr::ContractEventBody::V0(v0) => {
-                                    let topics: Vec<String> =
-                                        v0.topics.iter().map(scval_to_xdr_base64).collect();
-                                    let data = scval_to_xdr_base64(&v0.data);
-                                    (topics, data)
+                                let (topics, data) = match &event.event.body {
+                                    soroban_env_host::xdr::ContractEventBody::V0(v0) => {
+                                        let topics: Vec<String> =
+                                            v0.topics.iter().map(scval_to_xdr_base64).collect();
+                                        let data = scval_to_xdr_base64(&v0.data);
+                                        (topics, data)
+                                    }
+                                };
+
+                                let wasm_instruction = extract_wasm_instruction(&topics, &data);
+                                let metadata =
+                                    events::build_snapshot_metadata(cpu_insns, topics.len() as u32);
+                                raw_events
+                                    .push(format!("{:?} [snapshot_id={}]", event, metadata.id));
+                                DiagnosticEvent {
+                                    event_type,
+                                    contract_id,
+                                    topics,
+                                    data,
+                                    in_successful_contract_call: !event.failed_call,
+                                    snapshot_id: Some(metadata.id.clone()),
+                                    snapshot_metadata: Some(metadata),
+                                    wasm_instruction,
+                                    cpu: Some(cpu_insns),
+                                    mem: Some(mem_bytes),
                                 }
-                            };
-
-                            let wasm_instruction = extract_wasm_instruction(&topics, &data);
-                            let metadata =
-                                events::build_snapshot_metadata(cpu_insns, topics.len() as u32);
-                            raw_events.push(format!("{:?} [snapshot_id={}]", event, metadata.id));
-                            DiagnosticEvent {
-                                event_type,
-                                contract_id,
-                                topics,
-                                data,
-                                in_successful_contract_call: !event.failed_call,
-                                snapshot_id: Some(metadata.id.clone()),
-                                snapshot_metadata: Some(metadata),
-                                wasm_instruction,
-                            }
-                        })
-                        .collect();
-                    (raw_events, diag_events)
-                }
-                Err(_) => (
-                    vec!["Failed to retrieve events".to_string()],
-                    Vec::<DiagnosticEvent>::new(),
-                ),
-            };
+                            })
+                            .collect();
+                        (raw_events, diag_events)
+                    }
+                    Err(_) => (
+                        vec!["Failed to retrieve events".to_string()],
+                        Vec::<DiagnosticEvent>::new(),
+                    ),
+                };
 
             categorized_events = match host.get_events() {
                 Ok(evs) => categorize_events(&evs, Some(cpu_insns), Some(mem_bytes)),
@@ -1470,7 +1439,7 @@ mod tests {
 
         let contract_id = Hash([7u8; 32]);
         let key = LedgerKey::ContractData(LedgerKeyContractData {
-            contract: ScAddress::Contract(contract_id),
+            contract: ScAddress::Contract(soroban_env_host::xdr::ContractId(contract_id.clone())),
             key: ScVal::U32(5),
             durability: ContractDataDurability::Persistent,
         });
@@ -1478,7 +1447,9 @@ mod tests {
             last_modified_ledger_seq: 99,
             data: LedgerEntryData::ContractData(ContractDataEntry {
                 ext: soroban_env_host::xdr::ExtensionPoint::V0,
-                contract: ScAddress::Contract(contract_id),
+                contract: ScAddress::Contract(soroban_env_host::xdr::ContractId(
+                    contract_id.clone(),
+                )),
                 key: ScVal::U32(5),
                 durability: ContractDataDurability::Persistent,
                 val: ScVal::U64(9),
@@ -1492,8 +1463,8 @@ mod tests {
             STANDARD.encode(entry.to_xdr(soroban_env_host::xdr::Limits::none()).unwrap()),
         );
 
-        let host = runner::SimHost::new(None, None, None).inner;
-        let count = load_ledger_entries(&host, &entries).expect("failed to load entries");
+        let mut sim_host = runner::SimHost::new(None, None, None);
+        let count = load_ledger_entries(&mut sim_host, &entries).expect("failed to load entries");
         assert_eq!(count, 1);
     }
 }

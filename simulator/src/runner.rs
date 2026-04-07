@@ -21,13 +21,13 @@ pub enum SimHostError {
     Snapshot(#[from] SnapshotError),
 }
 
-/// Wrapper around the Soroban Host to manage initialization and execution context.
 pub struct SimHost {
     pub inner: Host,
     ledger_snapshot: LedgerSnapshot,
     budget_limits: Option<(u64, u64)>,
     calibration: Option<crate::types::ResourceCalibration>,
     memory_limit: Option<u64>,
+    _pending_events: Vec<String>,
 }
 
 impl SimHost {
@@ -63,6 +63,7 @@ impl SimHost {
             budget_limits,
             calibration,
             memory_limit,
+            _pending_events: Vec::new(),
         }
     }
 
@@ -84,6 +85,7 @@ impl SimHost {
             budget_limits,
             calibration,
             memory_limit,
+            _pending_events: Vec::new(),
         })
     }
 

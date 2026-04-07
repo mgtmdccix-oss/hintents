@@ -1,4 +1,3 @@
-cat > simulator/src/ipc/mod.rs << 'ENDOFFILE'
 // Copyright 2026 Erst Users
 // SPDX-License-Identifier: Apache-2.0
 
@@ -97,7 +96,7 @@ struct FetchResponseFrame {
 
 #[derive(Debug, Serialize)]
 struct FetchResponseData {
-    snapshots: Vec<SnapshotEntry>,
+    pub snapshots: Vec<SnapshotEntry>,
 }
 
 #[derive(Debug, Default)]
@@ -216,4 +215,3 @@ mod tests {
         assert_eq!(cmd.batch_size, 1);
     }
 }
-ENDOFFILE
