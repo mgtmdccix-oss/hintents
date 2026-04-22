@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	hProtocol "github.com/stellar/go-stellar-sdk/protocols/horizon"
+	hProtocol "github.com/stellar/go/protocols/horizon"
 )
 
 type telemetryCall struct {
