@@ -147,12 +147,12 @@ func (tv *TreeViewerWithMouse) handleInput() bool {
 		tv.renderView()
 		return false
 
-	case input == "\x1b[B" || input == "j": // Down arrow or j
+	case "\x1b[B", "j": // Down arrow or j
 		tv.renderer.SelectDown()
 		tv.renderView()
 		return false
 
-	case input == " " || input == "\r": // Space or Enter - toggle expand
+	case " ", "\r": // Space or Enter - toggle expand
 		node := tv.renderer.GetSelectedNode()
 		if node != nil && !node.IsLeaf() {
 			node.ToggleExpanded()
@@ -161,7 +161,7 @@ func (tv *TreeViewerWithMouse) handleInput() bool {
 		}
 		return false
 
-	case input == "e": // Expand all
+	case "e": // Expand all
 		if root := tv.getTraceRoot(); root != nil {
 			root.ExpandAll()
 			tv.renderer.RenderTree(root)
@@ -169,7 +169,7 @@ func (tv *TreeViewerWithMouse) handleInput() bool {
 		}
 		return false
 
-	case input == "c": // Collapse all
+	case "c": // Collapse all
 		if root := tv.getTraceRoot(); root != nil {
 			root.CollapseAll()
 			tv.renderer.RenderTree(root)
@@ -177,10 +177,10 @@ func (tv *TreeViewerWithMouse) handleInput() bool {
 		}
 		return false
 
-	case input == "q" || input == "\x03": // q or Ctrl+C - quit
+	case "q", "\x03": // q or Ctrl+C - quit
 		return true
 
-	case input == "h": // Help
+	case "h": // Help
 		tv.showHelp()
 		return false
 	}
