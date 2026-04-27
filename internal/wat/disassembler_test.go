@@ -729,3 +729,111 @@ func TestCrossReferenceEvents_UnparsableOffset(t *testing.T) {
 		t.Error("expected nil instruction for unparsable offset")
 	}
 }
+
+// =============================================================================
+// DetectUnreachable Tests
+// =============================================================================
+
+func TestDetectUnreachable_NoDeadCode(t *testing.T) {
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "i32.const", Size: 2},
+		{Offset: 2, Mnemonic: "drop", Size: 1},
+		{Offset: 3, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 0 {
+		t.Errorf("expected no segments, got %d", len(segs))
+	}
+}
+
+func TestDetectUnreachable_AfterReturn(t *testing.T) {
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "return", Size: 1},
+		{Offset: 1, Mnemonic: "i32.const", Size: 2}, // dead
+		{Offset: 3, Mnemonic: "drop", Size: 1},       // dead
+		{Offset: 4, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segs))
+	}
+	if len(segs[0].Instructions) != 2 {
+		t.Errorf("expected 2 dead instructions, got %d", len(segs[0].Instructions))
+	}
+	if segs[0].StartOffset != 1 {
+		t.Errorf("expected StartOffset 1, got %d", segs[0].StartOffset)
+	}
+}
+
+func TestDetectUnreachable_AfterUnreachable(t *testing.T) {
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "unreachable", Size: 1},
+		{Offset: 1, Mnemonic: "nop", Size: 1}, // dead
+		{Offset: 2, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segs))
+	}
+	if segs[0].Instructions[0].Mnemonic != "nop" {
+		t.Errorf("expected dead 'nop', got %q", segs[0].Instructions[0].Mnemonic)
+	}
+}
+
+func TestDetectUnreachable_AfterBr(t *testing.T) {
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "br", Size: 2},
+		{Offset: 2, Mnemonic: "i32.add", Size: 1}, // dead
+		{Offset: 3, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segs))
+	}
+}
+
+func TestDetectUnreachable_NestedBlockNotDead(t *testing.T) {
+	// return inside a nested block: the outer block's instructions after
+	// the nested end are still live.
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "block", Size: 2},
+		{Offset: 2, Mnemonic: "return", Size: 1},
+		{Offset: 3, Mnemonic: "nop", Size: 1}, // dead (inside block, after return)
+		{Offset: 4, Mnemonic: "end", Size: 1}, // closes inner block → resumes live
+		{Offset: 5, Mnemonic: "drop", Size: 1}, // live
+		{Offset: 6, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segs))
+	}
+	if len(segs[0].Instructions) != 1 || segs[0].Instructions[0].Mnemonic != "nop" {
+		t.Errorf("expected only 'nop' dead, got %v", segs[0].Instructions)
+	}
+}
+
+func TestDetectUnreachable_ElseResumesLive(t *testing.T) {
+	// if … return … else … end: the else branch is live.
+	insts := []Instruction{
+		{Offset: 0, Mnemonic: "if", Size: 2},
+		{Offset: 2, Mnemonic: "return", Size: 1},
+		{Offset: 3, Mnemonic: "nop", Size: 1},  // dead
+		{Offset: 4, Mnemonic: "else", Size: 1}, // resumes live
+		{Offset: 5, Mnemonic: "drop", Size: 1}, // live
+		{Offset: 6, Mnemonic: "end", Size: 1},
+	}
+	segs := DetectUnreachable(insts)
+	if len(segs) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segs))
+	}
+	if segs[0].Instructions[0].Mnemonic != "nop" {
+		t.Errorf("expected dead 'nop', got %q", segs[0].Instructions[0].Mnemonic)
+	}
+}
+
+func TestDetectUnreachable_Empty(t *testing.T) {
+	segs := DetectUnreachable(nil)
+	if len(segs) != 0 {
+		t.Errorf("expected no segments for nil input, got %d", len(segs))
+	}
+}

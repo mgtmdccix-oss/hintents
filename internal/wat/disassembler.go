@@ -266,6 +266,108 @@ func (d *Disassembler) decodeInstructions(start, end int) ([]Instruction, error)
 }
 
 // =============================================================================
+// Unreachable code detection
+// =============================================================================
+
+// UnreachableSegment describes a contiguous run of instructions that are
+// statically unreachable — i.e. they follow an unconditional control-flow
+// terminator (unreachable, return, br, br_table) before the enclosing block
+// is closed by end/else.
+type UnreachableSegment struct {
+	// StartOffset is the byte offset of the first dead instruction.
+	StartOffset uint64
+	// EndOffset is the byte offset one past the last dead instruction.
+	EndOffset uint64
+	// Instructions are the dead instructions in this segment.
+	Instructions []Instruction
+}
+
+// isUnconditionalTerminator reports whether the mnemonic unconditionally
+// transfers control away from the current sequential instruction stream.
+func isUnconditionalTerminator(mnemonic string) bool {
+	switch mnemonic {
+	case "unreachable", "return", "br", "br_table":
+		return true
+	}
+	return false
+}
+
+// isBlockOpener reports whether the mnemonic opens a new structured block.
+func isBlockOpener(mnemonic string) bool {
+	switch mnemonic {
+	case "block", "loop", "if":
+		return true
+	}
+	return false
+}
+
+// DetectUnreachable performs a linear-scan static analysis over the decoded
+// instructions and returns all segments of code that are statically
+// unreachable. The analysis is intra-procedural and purely syntactic: it
+// tracks structured-control-flow nesting depth and marks instructions dead
+// after an unconditional terminator until the enclosing block is closed.
+func DetectUnreachable(instructions []Instruction) []UnreachableSegment {
+	var segments []UnreachableSegment
+
+	dead := false      // are we currently in a dead zone?
+	deadDepth := 0     // extra block depth opened while already dead
+	var deadStart int  // index where the current dead zone began
+
+	flush := func(endIdx int) {
+		if endIdx <= deadStart {
+			return
+		}
+		seg := UnreachableSegment{
+			StartOffset:  instructions[deadStart].Offset,
+			EndOffset:    instructions[endIdx-1].Offset + uint64(instructions[endIdx-1].Size),
+			Instructions: instructions[deadStart:endIdx],
+		}
+		segments = append(segments, seg)
+	}
+
+	for i, inst := range instructions {
+		if dead {
+			switch {
+			case isBlockOpener(inst.Mnemonic):
+				deadDepth++
+			case inst.Mnemonic == "end":
+				if deadDepth > 0 {
+					deadDepth--
+				} else {
+					// This end closes the block that contained the terminator —
+					// flush the dead segment (excluding the end itself) and resume.
+					flush(i)
+					dead = false
+					deadDepth = 0
+				}
+			case inst.Mnemonic == "else":
+				if deadDepth == 0 {
+					// else re-opens the live branch of the enclosing if.
+					flush(i)
+					dead = false
+					deadDepth = 0
+				}
+			}
+			continue
+		}
+
+		if isUnconditionalTerminator(inst.Mnemonic) {
+			// The *next* instruction starts the dead zone.
+			dead = true
+			deadDepth = 0
+			deadStart = i + 1
+		}
+	}
+
+	// If the function ended while still dead (malformed or truncated), flush.
+	if dead && deadStart < len(instructions) {
+		flush(len(instructions))
+	}
+
+	return segments
+}
+
+// =============================================================================
 // Custom sections
 // =============================================================================
 
